@@ -27,7 +27,6 @@ overridden in states using the following arguments: ``host``, ``post``, ``db``,
         - db: 0
         - password: somuchkittycat
 """
-
 import copy
 
 __virtualname__ = "redis"
@@ -74,10 +73,10 @@ def string(name, value, expire=None, expireat=None, **connection_args):
 
     if expireat:
         __salt__["redis.expireat"](name, expireat, **connection_args)
-        ret["changes"]["expireat"] = "Key expires at {}".format(expireat)
+        ret["changes"]["expireat"] = f"Key expires at {expireat}"
     elif expire:
         __salt__["redis.expire"](name, expire, **connection_args)
-        ret["changes"]["expire"] = "TTL set to {} seconds".format(expire)
+        ret["changes"]["expire"] = f"TTL set to {expire} seconds"
 
     return ret
 
@@ -104,9 +103,7 @@ def absent(name, keys=None, **connection_args):
             ret["result"] = False
             ret["comment"] = "`keys` not formed as a list type"
             return ret
-        delete_list = [
-            key for key in keys if __salt__["redis.exists"](key, **connection_args)
-        ]
+        delete_list = [key for key in keys if __salt__["redis.exists"](key, **connection_args)]
         if not delete_list:
             return ret
         __salt__["redis.delete"](*delete_list, **connection_args)
@@ -122,11 +119,7 @@ def absent(name, keys=None, **connection_args):
 
 
 def slaveof(
-    name,
-    sentinel_host=None,
-    sentinel_port=None,
-    sentinel_password=None,
-    **connection_args
+    name, sentinel_host=None, sentinel_port=None, sentinel_password=None, **connection_args
 ):
     """
     Set this redis instance as a slave.
@@ -156,17 +149,19 @@ def slaveof(
     )
     if sentinel_master["master_host"] in __salt__["network.ip_addrs"]():
         ret["result"] = True
-        ret["comment"] = "Minion is the master: {}".format(name)
+        ret["comment"] = f"Minion is the master: {name}"
         return ret
 
     first_master = __salt__["redis.get_master_ip"](**connection_args)
     if first_master == sentinel_master:
         ret["result"] = True
-        ret["comment"] = "Minion already slave of master: {}".format(name)
+        ret["comment"] = f"Minion already slave of master: {name}"
         return ret
 
     if __opts__["test"] is True:
-        ret["comment"] = "Minion will be made a slave of {}: {}".format(
+        ret[
+            "comment"
+        ] = "Minion will be made a slave of {}: {}".format(  # pylint: disable=consider-using-f-string
             name, sentinel_master["host"]
         )
         ret["result"] = None
@@ -184,6 +179,6 @@ def slaveof(
         "old": first_master,
         "new": current_master,
     }
-    ret["comment"] = "Minion successfully connected to master: {}".format(name)
+    ret["comment"] = f"Minion successfully connected to master: {name}"
 
     return ret

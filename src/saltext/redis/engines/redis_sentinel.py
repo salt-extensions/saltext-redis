@@ -23,7 +23,6 @@ events based on the channels they are subscribed to.
 
 :depends: redis
 """
-
 import logging
 
 import salt.client
@@ -39,11 +38,7 @@ __virtualname__ = "redis"
 
 
 def __virtual__():
-    return (
-        __virtualname__
-        if redis is not None
-        else (False, "redis python module is not installed")
-    )
+    return __virtualname__ if redis is not None else (False, "redis python module is not installed")
 
 
 class Listener:
@@ -81,15 +76,16 @@ class Listener:
                 )
             )
         elif item["channel"] in ("+odown", "-odown"):
-            ret.update(
-                dict(list(zip(("master", "host", "port"), item["data"].split(" ")[1:])))
-            )
+            ret.update(dict(list(zip(("master", "host", "port"), item["data"].split(" ")[1:]))))
         else:
             ret = {
                 "channel": item["channel"],
                 "data": item["data"],
             }
-        self.fire_master(ret, "{}/{}".format(self.tag, item["channel"]))
+        self.fire_master(
+            ret,
+            "{}/{}".format(self.tag, item["channel"]),  # pylint: disable=consider-using-f-string
+        )
 
     def run(self):
         log.debug("Start Listener")
@@ -102,8 +98,6 @@ def start(hosts, channels, tag=None):
     if tag is None:
         tag = "salt/engine/redis_sentinel"
     with salt.client.LocalClient() as local:
-        ips = local.cmd(
-            hosts["matching"], "network.ip_addrs", [hosts["interface"]]
-        ).values()
+        ips = local.cmd(hosts["matching"], "network.ip_addrs", [hosts["interface"]]).values()
     client = Listener(host=ips.pop()[0], port=hosts["port"], channels=channels, tag=tag)
     client.run()

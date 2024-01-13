@@ -150,8 +150,6 @@ Cluster Configuration Example:
     cache.redis.key_prefix: #KEY
     cache.redis.separator: '@'
 """
-
-
 import itertools
 import logging
 import time
@@ -277,14 +275,10 @@ def _get_redis_keys_opts():
     """
     return {
         "bank_prefix": __opts__.get("cache.redis.bank_prefix", _BANK_PREFIX),
-        "bank_keys_prefix": __opts__.get(
-            "cache.redis.bank_keys_prefix", _BANK_KEYS_PREFIX
-        ),
+        "bank_keys_prefix": __opts__.get("cache.redis.bank_keys_prefix", _BANK_KEYS_PREFIX),
         "key_prefix": __opts__.get("cache.redis.key_prefix", _KEY_PREFIX),
         "separator": __opts__.get("cache.redis.separator", _SEPARATOR),
-        "timestamp_prefix": __opts__.get(
-            "cache.redis.timestamp_prefix", _TIMESTAMP_PREFIX
-        ),
+        "timestamp_prefix": __opts__.get("cache.redis.timestamp_prefix", _TIMESTAMP_PREFIX),
     }
 
 
@@ -293,14 +287,14 @@ def _get_bank_redis_key(bank):
     Return the Redis key for the bank given the name.
     """
     opts = _get_redis_keys_opts()
-    return "{prefix}{separator}{bank}".format(
+    return "{prefix}{separator}{bank}".format(  # pylint: disable=consider-using-f-string
         prefix=opts["bank_prefix"], separator=opts["separator"], bank=bank
     )
 
 
 def _get_timestamp_key(bank, key):
     opts = _get_redis_keys_opts()
-    return "{}{}{}/{}".format(
+    return "{}{}{}/{}".format(  # pylint: disable=consider-using-f-string
         opts["timestamp_prefix"], opts["separator"], {bank}, {key}
     )
     # Use this line when we can use modern python
@@ -312,7 +306,7 @@ def _get_key_redis_key(bank, key):
     Return the Redis key given the bank name and the key name.
     """
     opts = _get_redis_keys_opts()
-    return "{prefix}{separator}{bank}/{key}".format(
+    return "{prefix}{separator}{bank}/{key}".format(  # pylint: disable=consider-using-f-string
         prefix=opts["key_prefix"],
         separator=opts["separator"],
         bank=bank,
@@ -325,7 +319,7 @@ def _get_bank_keys_redis_key(bank):
     Return the Redis key for the SET of keys under a certain bank, given the bank name.
     """
     opts = _get_redis_keys_opts()
-    return "{prefix}{separator}{bank}".format(
+    return "{prefix}{separator}{bank}".format(  # pylint: disable=consider-using-f-string
         prefix=opts["bank_keys_prefix"], separator=opts["separator"], bank=bank
     )
 
@@ -352,7 +346,7 @@ def _get_banks_to_remove(redis_server, bank, path=""):
     A simple tree traversal algorithm that builds the list of banks to remove,
     starting from an arbitrary node in the tree.
     """
-    current_path = bank if not path else "{path}/{bank}".format(path=path, bank=bank)
+    current_path = bank if not path else f"{path}/{bank}"
     bank_paths_to_remove = [current_path]
     # as you got here, you'll be removed
 
@@ -396,11 +390,9 @@ def store(bank, key, data):
         log.debug("Adding %s to %s", key, redis_bank_keys)
         redis_pipe.execute()
     except (RedisConnectionError, RedisResponseError) as rerr:
-        mesg = "Cannot set the Redis cache key {rkey}: {rerr}".format(
-            rkey=redis_key, rerr=rerr
-        )
+        mesg = f"Cannot set the Redis cache key {redis_key}: {rerr}"
         log.error(mesg)
-        raise SaltCacheError(mesg)
+        raise SaltCacheError(mesg) from rerr
 
 
 def fetch(bank, key):
@@ -413,11 +405,9 @@ def fetch(bank, key):
     try:
         redis_value = redis_server.get(redis_key)
     except (RedisConnectionError, RedisResponseError) as rerr:
-        mesg = "Cannot fetch the Redis cache key {rkey}: {rerr}".format(
-            rkey=redis_key, rerr=rerr
-        )
+        mesg = f"Cannot fetch the Redis cache key {redis_key}: {rerr}"
         log.error(mesg)
-        raise SaltCacheError(mesg)
+        raise SaltCacheError(mesg) from rerr
     if redis_value is None:
         return {}
     return salt.payload.loads(redis_value)
@@ -460,18 +450,16 @@ def flush(bank, key=None):
             )
         try:
             log.debug("Executing the pipe...")
-            subtree_keys = (
-                redis_pipe.execute()
-            )  # here are the keys under these banks to be removed
+            subtree_keys = redis_pipe.execute()  # here are the keys under these banks to be removed
             # this retunrs a list of sets, e.g.:
             # [set([]), set(['my-key']), set(['my-other-key', 'yet-another-key'])]
             # one set corresponding to a bank
         except (RedisConnectionError, RedisResponseError) as rerr:
-            mesg = "Cannot retrieve the keys under these cache banks: {rbanks}: {rerr}".format(
+            mesg = "Cannot retrieve the keys under these cache banks: {rbanks}: {rerr}".format(  # pylint: disable=consider-using-f-string
                 rbanks=", ".join(bank_paths_to_remove), rerr=rerr
             )
             log.error(mesg)
-            raise SaltCacheError(mesg)
+            raise SaltCacheError(mesg) from rerr
         total_banks = len(bank_paths_to_remove)
         # bank_paths_to_remove and subtree_keys have the same length (see above)
         for index in range(total_banks):
@@ -519,11 +507,9 @@ def flush(bank, key=None):
     try:
         redis_pipe.execute()  # Fluuuush
     except (RedisConnectionError, RedisResponseError) as rerr:
-        mesg = "Cannot flush the Redis cache bank {rbank}: {rerr}".format(
-            rbank=bank, rerr=rerr
-        )
+        mesg = f"Cannot flush the Redis cache bank {bank}: {rerr}"
         log.error(mesg)
-        raise SaltCacheError(mesg)
+        raise SaltCacheError(mesg) from rerr
     return True
 
 
@@ -536,11 +522,9 @@ def list_(bank):
     try:
         banks = redis_server.smembers(bank_redis_key)
     except (RedisConnectionError, RedisResponseError) as rerr:
-        mesg = "Cannot list the Redis cache key {rkey}: {rerr}".format(
-            rkey=bank_redis_key, rerr=rerr
-        )
+        mesg = f"Cannot list the Redis cache key {bank_redis_key}: {rerr}"
         log.error(mesg)
-        raise SaltCacheError(mesg)
+        raise SaltCacheError(mesg) from rerr
     if not banks:
         return []
     return [bank.decode() for bank in banks if bank != b"."]
@@ -554,18 +538,13 @@ def contains(bank, key):
     bank_redis_key = _get_bank_keys_redis_key(bank)
     try:
         if key is None:
-            return (
-                salt.utils.stringutils.to_str(redis_server.type(bank_redis_key))
-                != "none"
-            )
+            return salt.utils.stringutils.to_str(redis_server.type(bank_redis_key)) != "none"
         else:
             return redis_server.sismember(bank_redis_key, key)
     except (RedisConnectionError, RedisResponseError) as rerr:
-        mesg = "Cannot retrieve the Redis cache key {rkey}: {rerr}".format(
-            rkey=bank_redis_key, rerr=rerr
-        )
+        mesg = f"Cannot retrieve the Redis cache key {bank_redis_key}: {rerr}"
         log.error(mesg)
-        raise SaltCacheError(mesg)
+        raise SaltCacheError(mesg) from rerr
 
 
 def updated(bank, key):

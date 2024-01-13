@@ -12,7 +12,6 @@ Default values for these configs are as follow:
 
 :depends:   - redis-py-cluster Python package
 """
-
 import hashlib
 import logging
 import os
@@ -37,8 +36,7 @@ def __virtual__():
     if not HAS_REDIS:
         return (
             False,
-            "Could not use redis for tokens; "
-            "rediscluster python client is not installed.",
+            "Could not use redis for tokens; rediscluster python client is not installed.",
         )
     return __virtualname__
 
@@ -55,9 +53,7 @@ def _redis_client(opts):
             host=redis_host, port=redis_port, decode_responses=True
         )
     except rediscluster.exceptions.RedisClusterException as err:
-        log.warning(
-            "Failed to connect to redis at %s:%s - %s", redis_host, redis_port, err
-        )
+        log.warning("Failed to connect to redis at %s:%s - %s", redis_host, redis_port, err)
         return None
 
 
@@ -80,17 +76,13 @@ def mk_token(opts, tdata):
         while redis_client.get(tok) is not None:
             tok = str(hash_type(os.urandom(512)).hexdigest())
     except Exception as err:  # pylint: disable=broad-except
-        log.warning(
-            "Authentication failure: cannot get token %s from redis: %s", tok, err
-        )
+        log.warning("Authentication failure: cannot get token %s from redis: %s", tok, err)
         return {}
     tdata["token"] = tok
     try:
         redis_client.set(tok, salt.payload.dumps(tdata))
     except Exception as err:  # pylint: disable=broad-except
-        log.warning(
-            "Authentication failure: cannot save token %s to redis: %s", tok, err
-        )
+        log.warning("Authentication failure: cannot save token %s to redis: %s", tok, err)
         return {}
     return tdata
 
@@ -110,9 +102,7 @@ def get_token(opts, tok):
         tdata = salt.payload.loads(redis_client.get(tok))
         return tdata
     except Exception as err:  # pylint: disable=broad-except
-        log.warning(
-            "Authentication failure: cannot get token %s from redis: %s", tok, err
-        )
+        log.warning("Authentication failure: cannot get token %s from redis: %s", tok, err)
         return {}
 
 
