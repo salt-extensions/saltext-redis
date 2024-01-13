@@ -94,7 +94,6 @@ cluster.skip_full_coverage_check: ``False``
 
 
 """
-
 import logging
 
 import salt.returners
@@ -219,7 +218,7 @@ def returner(ret):
     minion, jid = ret["id"], ret["jid"]
     pipeline.hset(f"ret:{jid}", minion, salt.utils.json.dumps(ret))
     pipeline.expire(f"ret:{jid}", _get_ttl())
-    pipeline.set("{}:{}".format(minion, ret["fun"]), jid)
+    pipeline.set("{}:{}".format(minion, ret["fun"]), jid)  # pylint: disable=consider-using-f-string
     pipeline.sadd("minions", minion)
     pipeline.execute()
 

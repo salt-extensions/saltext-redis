@@ -13,7 +13,6 @@ Module to provide redis functionality to Salt
     redis.db: 0
     redis.password: None
 """
-
 import salt.utils.args
 
 try:
@@ -325,9 +324,7 @@ def hincrby(key, field, increment=1, host=None, port=None, db=None, password=Non
     return server.hincrby(key, field, amount=increment)
 
 
-def hincrbyfloat(
-    key, field, increment=1.0, host=None, port=None, db=None, password=None
-):
+def hincrbyfloat(key, field, increment=1.0, host=None, port=None, db=None, password=None):
     """
     Increment the float value of a hash field by the given number.
 
@@ -447,9 +444,7 @@ def hvals(key, host=None, port=None, db=None, password=None):
     return server.hvals(key)
 
 
-def hscan(
-    key, cursor=0, match=None, count=None, host=None, port=None, db=None, password=None
-):
+def hscan(key, cursor=0, match=None, count=None, host=None, port=None, db=None, password=None):
     """
     Incrementally iterate hash fields and associated values.
 
@@ -624,9 +619,7 @@ def shutdown(host=None, port=None, db=None, password=None):
     return False
 
 
-def slaveof(
-    master_host=None, master_port=None, host=None, port=None, db=None, password=None
-):
+def slaveof(master_host=None, master_port=None, host=None, port=None, db=None, password=None):
     """
     Make the server a slave of another instance, or promote it as master
 
