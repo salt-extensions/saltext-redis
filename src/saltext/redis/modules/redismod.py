@@ -13,6 +13,7 @@ Module to provide redis functionality to Salt
     redis.db: 0
     redis.password: None
 """
+
 import salt.utils.args
 
 try:

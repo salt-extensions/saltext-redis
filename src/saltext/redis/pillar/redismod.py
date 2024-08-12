@@ -29,6 +29,7 @@ Configuring the Redis ext_pillar
           - redis: {function: key_value}
 
 """
+
 import salt.utils.json
 
 __virtualname__ = "redis"

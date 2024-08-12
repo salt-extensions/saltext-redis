@@ -94,6 +94,7 @@ cluster.skip_full_coverage_check: ``False``
 
 
 """
+
 import logging
 
 import salt.returners

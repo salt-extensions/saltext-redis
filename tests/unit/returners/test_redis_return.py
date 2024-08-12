@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
 import pytest
-import salt.returners.redis_return as redis_return
+
+from saltext.redis.returners import redis_return
 
 
 @pytest.fixture
@@ -31,7 +32,7 @@ def clean_REDIS_POOL():
 @pytest.fixture
 def mock_strict_redis():
     with patch.object(redis_return, "redis", create=True):
-        with patch("salt.returners.redis_return.redis.StrictRedis") as fake_strict_redis:
+        with patch("saltext.redis.returners.redis_return.redis.StrictRedis") as fake_strict_redis:
             yield fake_strict_redis
 
 
@@ -67,6 +68,7 @@ def test_when_platform_is_proxy_redis_should_use_opts_values(proxy_platform, moc
         host="the mostest",
         port=42,
         unix_socket_path="the road less traveled",
+        password="shibboleth",
         db="13",
         decode_responses=True,
     )
@@ -83,6 +85,7 @@ def test_when_platform_is_proxy_and_no_opts_are_set_fallback_values_should_be_us
         port=6379,
         unix_socket_path=None,
         db="0",
+        password=None,
         decode_responses=True,
     )
 
@@ -97,5 +100,6 @@ def test_when_platform_is_not_proxy_it_should_use_returner_opts(
         port=99,
         unix_socket_path="something socket",
         db="cooper",
+        password="super secret!",
         decode_responses=True,
     )

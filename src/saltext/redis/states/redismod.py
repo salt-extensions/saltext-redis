@@ -27,6 +27,7 @@ overridden in states using the following arguments: ``host``, ``post``, ``db``,
         - db: 0
         - password: somuchkittycat
 """
+
 import copy
 
 __virtualname__ = "redis"
@@ -159,10 +160,10 @@ def slaveof(
         return ret
 
     if __opts__["test"] is True:
-        ret[
-            "comment"
-        ] = "Minion will be made a slave of {}: {}".format(  # pylint: disable=consider-using-f-string
-            name, sentinel_master["host"]
+        ret["comment"] = (
+            "Minion will be made a slave of {}: {}".format(  # pylint: disable=consider-using-f-string
+                name, sentinel_master["host"]
+            )
         )
         ret["result"] = None
         return ret
