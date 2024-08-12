@@ -23,6 +23,7 @@ events based on the channels they are subscribed to.
 
 :depends: redis
 """
+
 import logging
 
 import salt.client

@@ -3,6 +3,7 @@
 
     Test cases for salt.modules.redismod
 """
+
 from datetime import datetime
 from unittest.mock import MagicMock
 
