@@ -38,7 +38,7 @@ requires-python = ">= 3.8"
 dynamic = ["version"]
 dependencies = [
     "salt>=3005",
-    "redis",
+    "python-redis",
     "redis-py-cluster",
 ]
 
@@ -80,6 +80,7 @@ tests = [
     "pytest>=7.2.0",
     "pytest-salt-factories>=1.0.0; sys_platform == 'win32'",
     "pytest-salt-factories[docker]>=1.0.0; sys_platform != 'win32'",
+    "pytest-subtests",
 ]
 
 [project.entry-points."salt.loader"]
