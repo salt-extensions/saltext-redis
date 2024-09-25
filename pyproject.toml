@@ -38,7 +38,7 @@ requires-python = ">= 3.8"
 dynamic = ["version"]
 dependencies = [
     "salt>=3005",
-    "python-redis",
+    "redis",
     "redis-py-cluster",
 ]
 
