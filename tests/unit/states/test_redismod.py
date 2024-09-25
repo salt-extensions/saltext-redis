@@ -6,7 +6,8 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-import salt.states.redismod as redismod
+
+from saltext.redis.states import redismod
 
 
 @pytest.fixture

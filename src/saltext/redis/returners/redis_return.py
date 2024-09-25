@@ -185,7 +185,7 @@ def _get_serv(ret=None):
     Return a redis server object
     """
     _options = _get_options(ret)
-    global REDIS_POOL
+    global REDIS_POOL  # pylint: disable=global-statement
     if REDIS_POOL:
         return REDIS_POOL
     elif _options.get("cluster_mode"):
@@ -224,6 +224,7 @@ def returner(ret):
     pipeline.execute()
 
 
+# pylint: disable=unused-argument
 def save_load(jid, load, minions=None):
     """
     Save the load to the specified jid

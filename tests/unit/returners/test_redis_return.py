@@ -23,7 +23,7 @@ def configure_loader_modules():
 
 
 @pytest.fixture(autouse=True)
-def clean_REDIS_POOL():
+def clean_REDIS_POOL():  # pylint: disable=invalid-name
     # Any unit test will want this value reset to None,
     # otherwise the values will remain set from other tests
     redis_return.REDIS_POOL = None
