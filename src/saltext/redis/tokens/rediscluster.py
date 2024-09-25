@@ -132,7 +132,6 @@ def list_tokens(opts):
     :param opts: Salt master config options
     :returns: List of dicts (token_data)
     """
-    ret = []
     redis_client = _redis_client(opts)
     if not redis_client:
         return []

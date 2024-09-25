@@ -8,7 +8,8 @@ from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
-import salt.modules.redismod as redismod
+
+from saltext.redis.modules import redismod
 
 
 class Mockredis:

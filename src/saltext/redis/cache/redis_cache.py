@@ -218,6 +218,7 @@ def __virtual__():
 # -----------------------------------------------------------------------------
 
 
+# pylint: disable=unused-argument
 def init_kwargs(kwargs):
     """
     Effectively a noop. Return an empty dictionary.
@@ -248,7 +249,7 @@ def _get_redis_server(opts=None):
     Return the Redis server instance.
     Caching the object instance.
     """
-    global REDIS_SERVER
+    global REDIS_SERVER  # pylint: disable=global-statement
     if REDIS_SERVER:
         return REDIS_SERVER
     if not opts:
