@@ -24,7 +24,7 @@ no_saltext_namespace: false
 package_name: redis
 project_name: redis
 python_requires: '3.8'
-relax_pylint: false
+relax_pylint: true
 salt_version: '3005'
 source_url: https://github.com/salt-extensions/saltext-redis
 ssh_fixtures: false
