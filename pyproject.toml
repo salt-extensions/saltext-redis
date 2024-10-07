@@ -35,13 +35,9 @@ classifiers = [
 requires-python = ">= 3.8"
 dynamic = ["version"]
 dependencies = [
-<<<<<<< before updating
-    "salt>=3005",
+    "salt>=3006",
     "redis",
     "redis-py-cluster",
-=======
-    "salt>=3006",
->>>>>>> after updating
 ]
 
 [project.readme]
