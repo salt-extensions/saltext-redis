@@ -4,6 +4,14 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 # Changelog
 
+## 1.0.1 (2024-11-03)
+
+
+### Fixed
+
+- Fixed redis library dependency [#13](https://github.com/salt-extensions/saltext-redis/issues/13)
+
+
 ## v1.0.0 (2024-08-13)
 
 Initial release of `saltext-redis`. This release tracks the functionality in the core Salt code base as of version 3007.1.
