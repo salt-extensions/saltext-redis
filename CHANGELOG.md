@@ -4,6 +4,14 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 # Changelog
 
+## 1.0.2 (2025-02-14)
+
+
+### Fixed
+
+- fixed saltext-redis is not working correctly with clustered redis [#18](https://github.com/salt-extensions/saltext-redis/issues/18)
+
+
 ## 1.0.1 (2024-11-03)
 
 
