@@ -44,13 +44,13 @@ def __virtual__():
 
 def _redis_client(opts):
     """
-    Connect to the redis host and return a StrictRedisCluster client object.
+    Connect to the redis host and return a RedisCluster client object.
     If connection fails then return None.
     """
     redis_host = opts.get("eauth_redis_host", "localhost")
     redis_port = opts.get("eauth_redis_port", 6379)
     try:
-        return rediscluster.StrictRedisCluster(
+        return rediscluster.RedisCluster(
             host=redis_host, port=redis_port, decode_responses=True
         )
     except rediscluster.exceptions.RedisClusterException as err:

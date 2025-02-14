@@ -114,7 +114,7 @@ log = logging.getLogger(__name__)
 
 try:
     # pylint: disable=no-name-in-module
-    from rediscluster import StrictRedisCluster
+    from rediscluster import RedisCluster
 
     # pylint: enable=no-name-in-module
 
@@ -189,9 +189,10 @@ def _get_serv(ret=None):
     if REDIS_POOL:
         return REDIS_POOL
     elif _options.get("cluster_mode"):
-        REDIS_POOL = StrictRedisCluster(
+        REDIS_POOL = RedisCluster(
             startup_nodes=_options.get("startup_nodes"),
             skip_full_coverage_check=_options.get("skip_full_coverage_check"),
+            password=_options.get("password"),
             decode_responses=True,
         )
     else:
