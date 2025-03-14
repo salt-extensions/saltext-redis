@@ -1,7 +1,7 @@
 """
-    :codeauthor: Jayesh Kariya <jayeshk@saltstack.com>
+:codeauthor: Jayesh Kariya <jayeshk@saltstack.com>
 
-    Test cases for salt.modules.redismod
+Test cases for salt.modules.redismod
 """
 
 from datetime import datetime
