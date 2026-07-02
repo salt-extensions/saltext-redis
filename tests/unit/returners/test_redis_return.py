@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -103,3 +103,274 @@ def test_when_platform_is_not_proxy_it_should_use_returner_opts(
         password="super secret!",
         decode_responses=True,
     )
+
+
+# ---------------------------------------------------------------------------
+# get_jids / clean_old_jobs: SCAN replaces blocking KEYS
+# ---------------------------------------------------------------------------
+
+
+def _serv_with_scan(scan_data, mget_data=None):
+    """
+    Build a ``serv`` mock whose ``scan_iter(match=...)`` returns the
+    keys for a given pattern, plus a ``keys(...)`` that raises -- so
+    the test fails loudly if the production code falls back to ``KEYS``.
+    """
+    serv = MagicMock(name="redis_serv")
+
+    def fake_scan_iter(match=None, **kwargs):
+        return iter(scan_data.get(match, []))
+
+    def fake_keys(*args, **kwargs):
+        raise AssertionError(
+            "production code called serv.keys(...); it must use "
+            "scan_iter() instead to avoid blocking the Redis server"
+        )
+
+    serv.scan_iter.side_effect = fake_scan_iter
+    serv.keys.side_effect = fake_keys
+    if mget_data is not None:
+        serv.mget.return_value = mget_data
+    return serv
+
+
+def test_get_jids_uses_scan_iter_not_keys():
+    """
+    Headline regression: ``get_jids`` must walk the keyspace with
+    ``SCAN``, not the blocking ``KEYS load:*``.
+    """
+    serv = _serv_with_scan(
+        scan_data={"load:*": ["load:20240101", "load:20240102"]},
+        mget_data=[None, None],  # contents don't matter for this test
+    )
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        redis_return.get_jids()
+
+    matches = [call.kwargs.get("match") for call in serv.scan_iter.call_args_list]
+    assert "load:*" in matches
+
+
+def test_get_jids_handles_no_jobs():
+    """
+    With no ``load:*`` keys in Redis, ``get_jids`` must return an empty
+    dict (and must not call ``mget`` with an empty list, which some
+    Redis clients reject). Pins the behaviour after the SCAN switch.
+    """
+    serv = _serv_with_scan(scan_data={"load:*": []})
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        result = redis_return.get_jids()
+
+    assert result == {}
+    serv.mget.assert_not_called()
+
+
+def test_clean_old_jobs_uses_scan_iter_not_keys():
+    """
+    Headline regression: ``clean_old_jobs`` must enumerate both
+    ``ret:*`` and ``load:*`` via ``SCAN``. Both calls were blocking
+    ``KEYS`` before the fix.
+    """
+    serv = _serv_with_scan(
+        scan_data={
+            "ret:*": ["ret:20240101", "ret:20240102"],
+            "load:*": ["load:20240102"],
+        }
+    )
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        redis_return.clean_old_jobs()
+
+    matches = [call.kwargs.get("match") for call in serv.scan_iter.call_args_list]
+    assert "ret:*" in matches
+    assert "load:*" in matches
+
+
+def test_clean_old_jobs_removes_only_orphan_ret_keys():
+    """
+    End-to-end behaviour after the SCAN switch: ``ret:<jid>`` keys
+    whose ``load:<jid>`` counterpart no longer exists must be deleted.
+    Active jobs (``ret`` with a matching ``load``) must be left alone.
+    """
+    serv = _serv_with_scan(
+        scan_data={
+            "ret:*": ["ret:dead-jid", "ret:alive-jid"],
+            "load:*": ["load:alive-jid"],
+        }
+    )
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        redis_return.clean_old_jobs()
+
+    serv.delete.assert_called_once()
+    deleted = set(serv.delete.call_args.args)
+    assert deleted == {"ret:dead-jid"}
+
+
+def test_clean_old_jobs_no_orphans_no_delete():
+    """No orphan keys -> no delete call. Pins backward compatibility."""
+    serv = _serv_with_scan(
+        scan_data={
+            "ret:*": ["ret:alive"],
+            "load:*": ["load:alive"],
+        }
+    )
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        redis_return.clean_old_jobs()
+
+    serv.delete.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# returner(): TTL on the {minion}:{fun} last-jid pointer
+# ---------------------------------------------------------------------------
+
+
+def _returner_pipeline_mock(ttl=3600):
+    """
+    Mock the ``serv.pipeline()`` returned by the returner so each
+    call recorded on the pipeline is observable. ``_get_ttl()`` is
+    patched to return a deterministic value so the test can match it
+    exactly.
+    """
+    pipeline = MagicMock(name="pipeline")
+    serv = MagicMock(name="redis_serv")
+    serv.pipeline.return_value = pipeline
+    return serv, pipeline
+
+
+def test_returner_sets_ttl_on_minion_fun_pointer():
+    """
+    Headline regression: ``<minion>:<fun>`` key must be written with
+    ``ex=_get_ttl()`` so it expires on the same schedule as the rest
+    of the returner data. Before the fix it was written with no TTL
+    and accumulated forever.
+    """
+    serv, pipeline = _returner_pipeline_mock()
+    ret = {"id": "minion-1", "jid": "20240101", "fun": "test.ping"}
+
+    with patch.object(redis_return, "_get_serv", return_value=serv), patch.object(
+        redis_return, "_get_ttl", return_value=3600
+    ):
+        redis_return.returner(ret)
+
+    set_calls = [
+        call
+        for call in pipeline.set.call_args_list
+        if call.args and call.args[0] == "minion-1:test.ping"
+    ]
+    assert len(set_calls) == 1, (
+        f"expected exactly one set('minion-1:test.ping', ...); "
+        f"got {pipeline.set.call_args_list}"
+    )
+    set_call = set_calls[0]
+    assert set_call.kwargs.get("ex") == 3600, (
+        f"<minion>:<fun> pointer must be set with ex=_get_ttl(); "
+        f"got kwargs={set_call.kwargs!r}"
+    )
+
+
+def test_returner_still_writes_all_four_keys():
+    """
+    Sanity: the TTL fix must not change which keys the returner
+    writes. The four canonical operations (hset, expire, set, sadd)
+    must all still appear on the pipeline.
+    """
+    serv, pipeline = _returner_pipeline_mock()
+    ret = {"id": "minion-1", "jid": "20240101", "fun": "test.ping"}
+
+    with patch.object(redis_return, "_get_serv", return_value=serv), patch.object(
+        redis_return, "_get_ttl", return_value=3600
+    ):
+        redis_return.returner(ret)
+
+    pipeline.hset.assert_called_once()
+    pipeline.expire.assert_called_once()
+    pipeline.set.assert_called_once()
+    pipeline.sadd.assert_called_once_with("minions", "minion-1")
+    pipeline.execute.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# get_fun: reads from ret:<jid> hash, not from non-existent <minion>:<jid>
+# ---------------------------------------------------------------------------
+
+
+def test_get_fun_reads_data_from_ret_hash():
+    """
+    Headline regression: ``get_fun`` must read the per-minion return
+    payload from ``HGET ret:<jid> <minion>``. Before the fix it did
+    ``GET <minion>:<jid>`` -- a key the module never writes -- and
+    therefore always returned ``{}``.
+    """
+    serv = MagicMock(name="redis_serv")
+    serv.smembers.return_value = ["minion-1", "minion-2"]
+    pointer_table = {
+        "minion-1:test.ping": "20240101",
+        "minion-2:test.ping": "20240102",
+    }
+    serv.get.side_effect = pointer_table.get
+    return_table = {
+        ("ret:20240101", "minion-1"): '{"jid": "20240101", "return": "ok-1"}',
+        ("ret:20240102", "minion-2"): '{"jid": "20240102", "return": "ok-2"}',
+    }
+    serv.hget.side_effect = lambda hashkey, field: return_table.get((hashkey, field))
+
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        result = redis_return.get_fun("test.ping")
+
+    assert result == {
+        "minion-1": {"jid": "20240101", "return": "ok-1"},
+        "minion-2": {"jid": "20240102", "return": "ok-2"},
+    }
+    assert all(
+        call.args[0] not in {"minion-1:20240101", "minion-2:20240102"}
+        for call in serv.get.call_args_list
+    ), "get_fun queried the non-existent <minion>:<jid> key; this is the bug"
+
+
+def test_get_fun_skips_minions_with_no_recent_jid():
+    """
+    Minion is in the ``minions`` set but has never run the requested
+    fun -> ``<minion>:<fun>`` returns None. Skip without consulting
+    ``ret:<jid>`` and without raising.
+    """
+    serv = MagicMock(name="redis_serv")
+    serv.smembers.return_value = ["minion-1"]
+    serv.get.return_value = None
+
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        result = redis_return.get_fun("test.ping")
+
+    assert result == {}
+    serv.hget.assert_not_called()
+
+
+def test_get_fun_handles_missing_hash_field():
+    """
+    The pointer says the latest jid is X, but the ``ret:X`` hash no
+    longer holds a field for this minion (e.g. it expired). Skip
+    cleanly.
+    """
+    serv = MagicMock(name="redis_serv")
+    serv.smembers.return_value = ["minion-1"]
+    serv.get.return_value = "20240101"
+    serv.hget.return_value = None
+
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        result = redis_return.get_fun("test.ping")
+
+    assert result == {}
+
+
+def test_get_fun_no_minions_returns_empty():
+    """
+    No minions in the ``minions`` set -> empty dict. Pins backwards
+    compatibility for fresh installs.
+    """
+    serv = MagicMock(name="redis_serv")
+    serv.smembers.return_value = []
+
+    with patch.object(redis_return, "_get_serv", return_value=serv):
+        result = redis_return.get_fun("test.ping")
+
+    assert result == {}
+    serv.get.assert_not_called()
+    serv.hget.assert_not_called()
