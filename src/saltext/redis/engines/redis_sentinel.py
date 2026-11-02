@@ -43,7 +43,7 @@ def __virtual__():
 
 
 class Listener:
-    def __init__(self, host=None, port=None, channels=None, tag=None):
+    def __init__(self, host=None, port=None, channels=None, tag=None, password=None):
         if host is None:
             host = "localhost"
         if port is None:
@@ -54,7 +54,9 @@ class Listener:
             tag = "salt/engine/redis_sentinel"
         super().__init__()
         self.tag = tag
-        self.redis = redis.StrictRedis(host=host, port=port, decode_responses=True)
+        self.redis = redis.StrictRedis(
+            host=host, port=port, password=password, decode_responses=True
+        )
         self.pubsub = self.redis.pubsub()
         self.pubsub.psubscribe(channels)
         self.fire_master = salt.utils.event.get_master_event(
@@ -95,10 +97,25 @@ class Listener:
             self.work(item)
 
 
-def start(hosts, channels, tag=None):
+def start(hosts, channels, tag=None, password=None):
     if tag is None:
         tag = "salt/engine/redis_sentinel"
     with salt.client.LocalClient() as local:
-        ips = local.cmd(hosts["matching"], "network.ip_addrs", [hosts["interface"]]).values()
-    client = Listener(host=ips.pop()[0], port=hosts["port"], channels=channels, tag=tag)
+        ip_results = local.cmd(
+            hosts["matching"], "network.ip_addrs", [hosts["interface"]]
+        )
+    if not ip_results:
+        log.error(
+            "redis_sentinel: no minions matched %r; cannot pick a listener "
+            "host. Check the 'matching' target in the engine config.",
+            hosts["matching"],
+        )
+        return
+    client = Listener(
+        host=next(reversed(ip_results.values()))[0],
+        port=hosts["port"],
+        channels=channels,
+        tag=tag,
+        password=password,
+    )
     client.run()
